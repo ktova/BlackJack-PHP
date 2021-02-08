@@ -93,12 +93,21 @@ class Joueur {
 		$_SESSION['bet'] = 0;
 	}
 
+	function double_bet(){
+		if( $this->bet * 2 > $this->jetons ):
+			return false;
+		else:
+			$this->bet *= 2;
+			$_SESSION['bet'] *= 2;
+		endif;
+	}
+
 	function gain_jetons( $jetons ){
 		$this->jetons += $jetons;
 		$_SESSION['money'] = $this->jetons;
 	}
 
-	function perte_jetons(){
+	function perte_jetons( $jetons ){
 		$this->jetons -= $jetons;
 		$_SESSION['money'] = $this->jetons;
 	}
@@ -115,11 +124,11 @@ class Joueur {
 
 	function check_bet( $bet ){
 		if( $bet > $this->jetons ):
-			return 0;
+			return false;
 		else:
 			$this->bet = $bet;
 			$_SESSION['bet'] = $bet;
-			return 1;
+			return true;
 		endif;
 	}
 
@@ -178,8 +187,33 @@ class Deck {
 $joueur = new Joueur( $_SESSION['playername'], $_SESSION['money'], $_SESSION['bet'], $_SESSION['player_cards'] );
 $croupier = new Joueur( 'Risicroupier', null, null, $_SESSION['croupier_cards'] );
 $deck = new Deck( $_SESSION['deck'] );
+$win = $lose = 0;
 
-print_r($_SESSION);
+// Functions
+
+function outcome_checker( $joueur ){
+
+	if( $joueur->get_points() == 21 ):
+		$gains = $joueur->get_bet() * 1.5;
+		$joueur->gain_jetons( $gains );
+		$step = 2;
+		$win = 1;
+
+		$joueur->reset_cards( 'joueur' );
+		$croupier->reset_cards( 'croupier' );
+		$deck->shuffle_deck();
+
+	elseif( $joueur->get_points() > 21 ):
+		$joueur->perte_jetons( $joueur->get_bet() );
+		$step = 2;
+		$lose = 1;
+
+		$joueur->reset_cards( 'joueur' );
+		$croupier->reset_cards( 'croupier' );
+		$deck->shuffle_deck();
+
+	endif;
+}
 
 // On défini l'étape en cours (Si step non définit, il vaut 1)
 $step = isset( $_REQUEST['step'] ) ? (int)$_REQUEST['step'] : 1;
@@ -197,66 +231,44 @@ switch ( $step )
 	
 		// Le joueur tire 2 cartes 
 		while( $joueur->count_cards() < 2 ):
-
 			$new_card = $deck->draw_card();
 			$joueur->add_card( $new_card , 'joueur' );
-
 		endwhile;		
 			
 		// Tirage de la première carte du croupier
 		while( $croupier->count_cards() < 1 ):
-
 			$new_card = $deck->draw_card();
 			$croupier->add_card( $new_card , 'croupier' );
-
 		endwhile;
 
 		// Si le joueur à 21 points, il gagne automatiquement et récupère immédiatement 1,5 fois sa mise
-		if( $joueur->get_points() == 21 ){
-			$gains = $joueur->get_bet() * 1.5;
-			$joueur->gain_jetons( $gains );
-			$step = 2;
-			$win = 1;
-		}
+		outcome_checker( $joueur );
+
 		break;
 		
 	// Tour du joueur
 	case 3:
 	
-		// Le joueur souhaite doubler sa mise et il a les moyens de la faire (A FAIRE)
-		$_SESSION['bet'] *= 2;
-		// Le joueur demande une nouvelle carte (A FAIRE)
-		print_r($_SESSION);
-		$player_cards[] = draw_card( $deck );
-
-		foreach ( $croupier_cards as $card )
-			$croupier_total += $card['points'];
-		foreach ( $player_cards as $card )
-			$player_total += $card['points'];
-
-		if(isset($_POST['kiki']) == 'true'){
-			echo 'testss';
-		}
+		// Le joueur souhaite doubler sa mise
+		if( isset($_REQUEST['double_bet']) ):
+			if( $joueur->double_bet() == false ):
+				$error_message = "Vous ne pouvez pas doubler votre mise !";
+			else:
+				$joueur->double_bet();
+			endif;
+		endif;
 		
-		// Si le joueur a 21 points, il gagne automatiquement et
-		// récupère immédiatement 1,5 fois sa mise (A FAIRE)
-		if($player_total == 21) {
-			$_SESSION["money"] += ($_SESSION['bet'] / 2) + $_SESSION['bet']; //Il gagne 1.5 la mise
-			$_SESSION['bet'] = 0;
-			
-			$step = 1;
-		} elseif($player_total > 21){ // Si le joueur a plus de 21 points, il perd sa mise (A FAIRE)
-			$_SESSION['bet'] = 0;
-			$step = 1;
-		} 
-		// Afficher le résultat de se tour (A FAIRE)
-		 $step = 2;
-		?>
-	
-			
+		// Le joueur demande une nouvelle carte
+		if( isset($_REQUEST['new_card']) && $joueur->count_cards() < 3 ):
+			$new_card = $deck->draw_card();
+			$joueur->add_card( $new_card , 'joueur' );
+		endif;
 		
+		// Si le joueur a 21 points, il gagne automatiquement et récupère immédiatement 1,5 fois sa mise | Si il a + il perds
+		outcome_checker( $joueur );
 
-	<?php
+		$step = 2;
+		 
 		break;
 		
 	// Tour du croupier
@@ -351,7 +363,7 @@ switch ( $step )
 			?>
 
 				<div class="player">
-					<h2>Croupier <span><?php echo $croupier_total ?></span></h2>
+					<h2>Croupier <span><?php echo $croupier->get_points() ?></span></h2>
 					<?php 
 						foreach ( $croupier->get_cards() as $card ) //affichage des cartes du croupier
 							echo '<div class="card card-' . $card['color'] . '">' . $card['value'] . '</div>';
@@ -359,17 +371,44 @@ switch ( $step )
 					?>
 				</div>
 				<div class="player">
-					<h2>Joueur <span><?php echo $player_total ?></span></h2>
+					<h2>Joueur <span><?php echo $joueur->get_points() ?></span></h2>
 					<?php 
 						foreach ( $joueur->get_cards() as $card ) //affichage des cartes du joueur
 							echo '<div class="card card-' . $card['color'] . '">' . $card['value'] . '</div>';
 						
 					?>
 				</div> <!-- actions du joueur qui renvoie vers switch 1 --> 
+
+				<?php if( !empty($error_message) ): ?>
+					<h3><?php echo $error_message ?></h3>
+				<?php endif; ?>
+
+				<?php if( $win == 1 ): ?>
+
+				<div class="outcome" id="win">
+					<h3>Vous avez gagné cette manche !</h3>
+				</div>
+
+				<?php elseif( $lose == 1 ):?>
+
+				<div class="outcome" id="lose">
+					<h3>Vous avez perdu cette manche !</h3>
+				</div>
+
+				<?php endif; ?>
+
 				<div class="actions">
-					<a href="?step=3">Nouvelle carte</a>
+					
+					<?php if( count( $joueur->get_cards() ) !== 3 ): ?>
+					<a href="?step=3&new_card">Nouvelle carte</a>
+					<?php endif; ?>
+
+					<?php if( $joueur->get_bet() * 2 > $joueur->get_jetons() ): ?>
+					<a href="?step=3&double_bet">Doubler la mise !</a>
+					<?php endif; ?>
+					
 					<a href="#">Passer son tour</a>
-					<a href="#">Doubler la mise !</a>
+
 				</div>
 
 			<?php 
