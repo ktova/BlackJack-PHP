@@ -13,8 +13,9 @@ if( empty($_SESSION['money']) ):
 	// Variables
 	$_SESSION['player_cards'] = $_SESSION['croupier_cards'] = array();
 	$_SESSION['player_total'] = $_SESSION['croupier_total'] = 0;
-	$_SESSION['money'] = 100;
+	$_SESSION['money'] = 20;
 	$_SESSION['bet'] = 5;
+	$_SESSION['gamestate'] = 0;
 
 	$colors = array( 'heart', 'diam', 'club', 'spade' );
 
@@ -41,17 +42,19 @@ endif;
 
 class Joueur {
 	// Init
-	var $nom ;
+	private $nom ;
 	var $jetons ;
 	var $bet ;
 	var $cards ;
 	var $skip;
+	var $state;
 
-	function __construct($nom, $jetons, $bet, $cards, $skip){
+	function __construct($nom, $jetons, $bet, $cards, $state, $skip){
 		$this->nom = $nom;
 		$this->jetons = $jetons;
 		$this->bet = $bet;
 		$this->cards = $cards;
+		$this->state = $state;
 		$this->skip = $skip;
 	}
 
@@ -81,7 +84,11 @@ class Joueur {
 	}
 
 	function get_skip(){
-		return $this->passe_tour;
+		return $this->skip;
+	}
+
+	function gamestate(){
+		return $this->state;
 	}
 	
 	// Setters
@@ -95,8 +102,13 @@ class Joueur {
 	}
 
 	function reset_bet(){
-		$this->bet = 0;
-		$_SESSION['bet'] = 0;
+		$this->bet = 5;
+		$_SESSION['bet'] = 5;
+	}
+
+	function reset_jetons(){
+		$this->jetons = 20;
+		$_SESSION['money'] = 20;
 	}
 
 	function double_bet(){
@@ -127,6 +139,21 @@ class Joueur {
 			$this->passe_tour = 1;
 			$_SESSION['skip_croupier'] = 1;
 		endif;
+	}
+
+	function edit_gamestate( $state ){
+		if( $state == 'win' ):
+			$this->state = 1;
+			$_SESSION['gamestate'] = 1;
+		elseif( $state == 'lose' ):
+			$this->state = 2;
+			$_SESSION['gamestate'] = 2;
+		endif;
+	}
+
+	function reset_gamestate(){
+		$this->state = 0;
+		$_SESSION['gamestate'] = 0;
 	}
 
 	// Functions
@@ -210,43 +237,31 @@ class Deck {
 }
 
 // Objetcs init
-$joueur = new Joueur( $_SESSION['playername'], $_SESSION['money'], $_SESSION['bet'], $_SESSION['player_cards'], $_SESSION['skip_joueur'] );
-$croupier = new Joueur( 'Risicroupier', null, null, $_SESSION['croupier_cards'], $_SESSION['skip_croupier'] );
+$joueur = new Joueur( $_SESSION['playername'], $_SESSION['money'], $_SESSION['bet'], $_SESSION['player_cards'], $_SESSION['gamestate'], $_SESSION['skip_joueur'] );
+$croupier = new Joueur( 'Risicroupier', null, null, $_SESSION['croupier_cards'], null, $_SESSION['skip_croupier'] );
 $deck = new Deck( $_SESSION['deck'] );
-$win = $lose = 0;
-
-// DEBUG
-// print_r($_SESSION);
 
 // Functions
 function reset_game( $joueur , $croupier , $deck ){
+	$joueur->reset_gamestate();
+	$joueur->reset_jetons();
 	$joueur->reset_cards( 'joueur' );
 	$croupier->reset_cards( 'croupier' );
 	$deck->shuffle_deck();
 }
 
-function outcome_checker( $joueur, $type ){
+function outcome_checker( $player, $type , $joueur ){
 
-	if( ( $joueur->get_points() == 21 && $type == 'joueur' ) || ( $joueur->get_points() > 21 && $type == 'croupier' ) ):
-		$gains = $joueur->get_bet() * 1.5;
-		$joueur->gain_jetons( $gains );
+	if( ( $player->get_points() == 21 && $type == 'joueur' ) || ( $player->get_points() > 21 && $type == 'croupier' ) ):
+		$gains = $player->get_bet() * 1.5;
+		$player->gain_jetons( $gains );
 		$step = 2;
-		$win = 1;
+		$joueur->edit_gamestate( 'win' );
 
-		# TODO : Erreur quand le joueur hit 21 à la pioche sans les objets passés en arguments
-		print_r($joueur);
-
-		reset_game( $joueur , $croupier , $deck );
-
-	elseif( ( $joueur->get_points() > 21 && $type == 'joueur' ) || ( $joueur->get_points() == 21 && $type == 'croupier' ) ):
-		$joueur->perte_jetons( $joueur->get_bet() );
+	elseif( ( $player->get_points() > 21 && $type == 'joueur' ) || ( $player->get_points() == 21 && $type == 'croupier' ) ):
+		$player->perte_jetons( $player->get_bet() );
 		$step = 2;
-		$lose = 1;
-
-		# TODO : Erreur quand le joueur hit 21 à la pioche sans les objets passés en arguments
-		print_r($joueur);
-
-		reset_game( $joueur , $croupier , $deck );
+		$joueur->edit_gamestate( 'lose' );
 
 	endif;
 }
@@ -284,31 +299,33 @@ switch ( $step )
 		endwhile;
 
 		// Si le joueur à 21 points, il gagne automatiquement et récupère immédiatement 1,5 fois sa mise
-		outcome_checker( $joueur , 'joueur' );
+		outcome_checker( $joueur , 'joueur' , $joueur );
 
 		break;
 		
 	// Tour du joueur
 	case 3:
 	
-		// Le joueur souhaite doubler sa mise
-		if( isset($_REQUEST['double_bet']) ):
-			if( $joueur->double_bet() == false ):
-				$error_message = "Vous ne pouvez pas doubler votre mise !";
-			else:
-				//$joueur->double_bet();
-			endif;
-		endif;
-		
-		// Le joueur demande une nouvelle carte
-		if( isset($_REQUEST['new_card']) && $joueur->count_cards() < 3 ):
-			$new_card = $deck->draw_card();
-			$joueur->add_card( $new_card , 'joueur' );
-		endif;
-		
-		// Si le joueur a 21 points, il gagne automatiquement et récupère immédiatement 1,5 fois sa mise | Si il a + il perds
-		outcome_checker( $joueur , 'joueur' );
+		if( $joueur->gamestate() == 0 ):
 
+			// Le joueur souhaite doubler sa mise
+			if( isset($_REQUEST['double_bet']) ):
+				if( $joueur->double_bet() == false ):
+					$error_message = "Vous ne pouvez pas doubler votre mise !";
+				else:
+					//$joueur->double_bet();
+				endif;
+			endif;
+			
+			// Le joueur demande une nouvelle carte
+			if( isset($_REQUEST['new_card']) && $joueur->count_cards() < 3 ):
+				$new_card = $deck->draw_card();
+				$joueur->add_card( $new_card , 'joueur' );
+			endif;
+			
+			// Si le joueur a 21 points, il gagne automatiquement et récupère immédiatement 1,5 fois sa mise | Si il a + il perds
+			outcome_checker( $joueur , 'joueur' , $joueur );
+		endif;
 		$step = 2;
 		 
 		break;
@@ -335,9 +352,12 @@ switch ( $step )
 		
 		// Si le croupier a plus de 21 points, le joueur récupère immédiatement 1,5 fois sa mise 
 		// Si le croupier a 21 points, le joueur perd sa mise 
-		outcome_checker( $croupier, 'croupier' );
+		outcome_checker( $croupier, 'croupier' , $joueur );
 		
-		// Si le joueur a passé et que le croupier a passé, le joueur récupère sa mise 
+		// Si le joueur a passé et que le croupier a passé, le joueur récupère sa mise
+		if( $joueur->get_skip() == 1 && $croupier->get_skip() == 1 ):
+
+		endif;
 
 		// Afficher le résultat de se tour (A FAIRE)
 		
@@ -345,7 +365,6 @@ switch ( $step )
 		
 		break;
 }
-
 
 ?>	
 <html lang="fr">
@@ -411,10 +430,10 @@ switch ( $step )
 			<?php
 				break;
 			
-			case 2:
-			
+			case 2:			
 			?>
 
+				<?php if( $joueur->gamestate() == 0 ): ?>
 				<div class="player">
 					<h2>Croupier <span><?php echo $croupier->get_points() ?></span></h2>
 					<?php 
@@ -436,20 +455,6 @@ switch ( $step )
 					<h3><?php echo $error_message ?></h3>
 				<?php endif; ?>
 
-				<?php if( $win == 1 ): ?>
-
-				<div class="outcome" id="win">
-					<h3>Vous avez gagné cette manche !</h3>
-				</div>
-
-				<?php elseif( $lose == 1 ):?>
-
-				<div class="outcome" id="lose">
-					<h3>Vous avez perdu cette manche !</h3>
-				</div>
-
-				<?php endif; ?>
-
 				<div class="actions">
 					
 					<?php if( count( $joueur->get_cards() ) !== 3 ): ?>
@@ -460,14 +465,54 @@ switch ( $step )
 					<a href="?step=3&double_bet">Doubler la mise !</a>
 					<?php endif; ?>
 					
+					<?php if( $joueur->gamestate() == 0 ): ?>
 					<a href="#">Passer son tour</a>
+					<?php endif; ?>
 
 					<a href="?reset">Réinitialiser</a>
-
 				</div>
+				<?php endif; ?>
 
-			<?php 
-			
+			<?php
+				if( $joueur->gamestate() !== 0 ):
+			?>
+
+			<div class="result-container">
+					
+					<?php if( $joueur->gamestate() == 1 ): ?>
+					<img src="https://tova.dev/static/bravo.png" style="width:100px;margin-bottom:20px">
+					<?php elseif( $joueur->gamestate() == 2 ): ?>
+					<img src="https://tova.dev/static/pabravo.png" style="width:100px;margin-bottom:20px">
+					<?php endif; ?>
+
+					<span>Vous avez <?php if( $joueur->gamestate() == 1 ): echo 'gagné'; elseif( $joueur->gamestate() == 2 ): echo 'perdu'; endif; ?> la partie </span>
+					
+					<div class="player">
+					<h2>Croupier <span><?php echo $croupier->get_points() ?></span></h2>
+					<?php 
+						foreach ( $croupier->get_cards() as $card ) //affichage des cartes du croupier
+							echo '<div class="card card-' . $card['color'] . '">' . $card['value'] . '</div>';
+						
+					?>
+					</div>
+
+					<div class="player">
+						<h2>Joueur <span><?php echo $joueur->get_points() ?></span></h2>
+						<?php 
+							foreach ( $joueur->get_cards() as $card ) //affichage des cartes du joueur
+								echo '<div class="card card-' . $card['color'] . '">' . $card['value'] . '</div>';
+							
+						?>
+					</div>
+
+					<div class="actions">			
+						<a href="?reset">Rejouer</a>
+					</div>
+			</div>
+
+			<?php
+				endif;
+
 				break;
 	} 
 			?>
