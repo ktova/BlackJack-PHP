@@ -217,6 +217,7 @@ class Deck {
 	}
 
 	function shuffle_deck(){
+		$this->cardlist = array();
 		foreach( $this->colors as $color ):
 			$this->cardlist[] = array( 'value' => '2', 'color' => $color, 'points' => 2 );
 			$this->cardlist[] = array( 'value' => '3', 'color' => $color, 'points' => 3 );
@@ -245,6 +246,7 @@ $deck = new Deck( $_SESSION['deck'] );
 function reset_game( $joueur , $croupier , $deck ){
 	$joueur->reset_gamestate();
 	$joueur->reset_jetons();
+	$joueur->reset_bet();
 	$joueur->reset_cards( 'joueur' );
 	$croupier->reset_cards( 'croupier' );
 	$deck->shuffle_deck();
@@ -281,9 +283,12 @@ switch ( $step )
 	// Tour d'initialisation
 	case 2:
 
-		if( $joueur->check_bet( $_REQUEST['bet'] ) == false ):
-			$step = 1;
-			break;
+		if( isset( $_REQUEST['replay'] ) ):
+			$joueur->reset_cards( 'joueur' );
+			$croupier->reset_cards( 'croupier' );
+			$deck->shuffle_deck();
+			$joueur->reset_gamestate();
+			$joueur->reset_bet();
 		endif;
 	
 		// Le joueur tire 2 cartes 
@@ -506,7 +511,7 @@ switch ( $step )
 					</div>
 
 					<div class="actions">			
-						<a href="?reset">Rejouer</a>
+						<a href="?step=2&replay">Rejouer</a>
 					</div>
 			</div>
 
