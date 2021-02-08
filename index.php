@@ -11,11 +11,13 @@ session_start();
 // Initialisation des valeurs uniquement lors d'une nouvelle partie
 if( empty($_SESSION['money']) ):
 	// Variables
+	$_SESSION['playername'] = 'invité';
 	$_SESSION['player_cards'] = $_SESSION['croupier_cards'] = array();
 	$_SESSION['player_total'] = $_SESSION['croupier_total'] = 0;
 	$_SESSION['money'] = 20;
 	$_SESSION['bet'] = 5;
 	$_SESSION['gamestate'] = 0;
+	$_SESSION['skip_joueur'] = $_SESSION['skip_croupier'] = 0;
 
 	$colors = array( 'heart', 'diam', 'club', 'spade' );
 
@@ -42,7 +44,7 @@ endif;
 
 class Joueur {
 	// Init
-	private $nom ;
+	var $nom ;
 	var $jetons ;
 	var $bet ;
 	var $cards ;
@@ -92,9 +94,14 @@ class Joueur {
 	}
 	
 	// Setters
-	function delete_nom(){
-		unset( $this->nom );
-		unset( $_SESSION['playername'] );
+	function reset_nom(){
+		$this->nom = 'invité';
+		 $_SESSION['playername'] = 'invité';
+	}
+
+	function change_nom( $playername ){
+		$this->nom = $playername;
+		$_SESSION['playername'] = $playername;
 	}
 
 	function reset_cards( $type ){
@@ -104,6 +111,12 @@ class Joueur {
 		elseif( $type == 'croupier' ):
 			$_SESSION['croupier_cards'] = array();
 		endif;
+	}
+
+	function reset_skip(){
+		$this->skip = 0;
+		$_SESSION['skip_joueur'] = 0;
+		$_SESSION['skip_croupier'] = 0;
 	}
 
 	function reset_bet(){
@@ -242,19 +255,14 @@ class Deck {
 	}
 }
 
-// Objetcs init
-if( isset($_REQUEST['playername']) ): $_SESSION['playername'] = $_REQUEST['playername']; endif;
-$joueur = new Joueur( $_SESSION['playername'], $_SESSION['money'], $_SESSION['bet'], $_SESSION['player_cards'], $_SESSION['gamestate'], $_SESSION['skip_joueur'] );
-$croupier = new Joueur( 'Risicroupier', null, null, $_SESSION['croupier_cards'], null, $_SESSION['skip_croupier'] );
-$deck = new Deck( $_SESSION['deck'] );
-
 // Functions
 function reset_game( $joueur , $croupier , $deck ){
+	$joueur->reset_skip();
 	$joueur->reset_gamestate();
 	$joueur->reset_jetons();
 	$joueur->reset_bet();
 	$joueur->reset_cards( 'joueur' );
-	$joueur->delete_nom();
+	$joueur->reset_nom();
 	$croupier->reset_cards( 'croupier' );
 	$deck->shuffle_deck();
 }
@@ -275,14 +283,24 @@ function outcome_checker( $player, $type , $joueur ){
 	endif;
 }
 
-// On défini l'étape en cours
-$step = isset( $_REQUEST['step'] ) ? (int)$_REQUEST['step'] : 1;
+// Objetcs init
+$joueur = new Joueur( $_SESSION['playername'], $_SESSION['money'], $_SESSION['bet'], $_SESSION['player_cards'], $_SESSION['gamestate'], $_SESSION['skip_joueur'] );
+$croupier = new Joueur( 'Risicroupier', null, null, $_SESSION['croupier_cards'], null, $_SESSION['skip_croupier'] );
+$deck = new Deck( $_SESSION['deck'] );
 
 // En cas de reset (à voir si on garde)
 if( isset( $_REQUEST['reset'] ) ):
 	reset_game( $joueur , $croupier , $deck );
 	$step = 1;
 endif;
+
+// AMPP Fix
+if( isset( $_REQUEST['playername'] ) ):
+	$joueur->change_nom( $_REQUEST['playername'] );
+endif;
+
+// On défini l'étape en cours
+$step = isset( $_REQUEST['step'] ) ? (int)$_REQUEST['step'] : 1;
 
 // Déroulement de la partie
 switch ( $step )
@@ -315,7 +333,7 @@ switch ( $step )
 
 		break;
 		
-	// Tour du joueur
+	// Tour de jeu
 	case 3:
 	
 		if( $joueur->gamestate() == 0 ):
@@ -413,7 +431,7 @@ switch ( $step )
 
 		<div class="top-left">
 		<a href="?reset" class="reset"><i class="fas fa-power-off"></i></a>
-		<?php if( !empty( $joueur->get_nom() ) ) : echo '&nbsp; Bonjour ' . strtoupper($joueur->get_nom()) . ' !' ; endif; ?>
+		<?php echo '&nbsp; Bonjour ' . $joueur->get_nom() . ' !'; ?>
 		</div>
 		
 		<?php 
@@ -423,10 +441,10 @@ switch ( $step )
 				
 		?>
 				<h2>Bienvenue à la table CREA !</h2>
-				<form method="post" action="index">
+				<form method="post" action="index.php">
 					<input type="hidden" name="step" value="2" /> 
 
-					<label for="bet">Pseudonyme</label>
+					<label for="name">Pseudonyme</label>
 					<input type="text" name="playername" /> 
 					<br><br>
 					<label for="bet">Votre mise:</label>
