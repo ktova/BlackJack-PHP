@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100;300;400;500;700;900&display=swap');
+
 * {
     -webkit-font-smoothing: antialiased;
 }
@@ -5,19 +7,16 @@
 body {
     font-family: 'helvetica neue';
     font-size: 16px;
-    margin: 0;
-    background: #147729; /* Old browsers */
-    background: -moz-radial-gradient(center, ellipse cover, #147729 0%, #043604 100%); /* FF3.6-15 */
-    background: -webkit-radial-gradient(center, ellipse cover, #147729 0%,#043604 100%); /* Chrome10-25,Safari5.1-6 */
-    background: radial-gradient(ellipse at center, #147729 0%,#043604 100%); /* W3C, IE10+, FF16+, Chrome26+, Opera12+, Safari7+ */
-    filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#147729', endColorstr='#043604',GradientType=1 ); /* IE6-9 fallback on horizontal gradient */
+    background-color: #0e0e0e;
     color: white;
 }
 
 .wrapp{
-    width: 700px;
-    margin: 0 auto;
+    width: 100%;
+    margin: 0;
     padding-top: 50px;
+    padding-bottom: 25px;
+    min-height: 75vh;
     position: relative;
 }
 
@@ -28,7 +27,7 @@ h1, h2{
     color: white;
     text-align: center;
 }
-h2{ color: #033900; font-size: 25px; text-shadow: 0 0 5px #469C41 }
+h2{ color: #F8B317; font-size: 25px; text-shadow: 0 0 5px #ff2600 }
 
 form{
     text-align: center;
@@ -36,13 +35,22 @@ form{
 
 button[type="submit"]{
     display: block;
-    margin: 10px auto;
+    margin: 20px auto;
     padding: 5px 20px;
     border: none;
-    background: #033900;
-    color: white;
-    font-size: 18px;
-    
+    background: #F8B317;
+    border-radius: 5px;
+    color: black;
+    text-transform: uppercase;
+    font-size: 13px;
+    font-family: 'Noto Sans JP', sans-serif;
+    transition: color, background-color 0.2s;
+}
+
+button[type="submit"]:hover{
+    color: #F8B317;
+    background: black;
+    cursor: pointer;
 }
 
 #money{
@@ -67,15 +75,16 @@ button[type="submit"]{
 .player h2 span{
     display: inline-block;
     width: 40px;
-    padding: 6px 0 0;
+    padding: 6px 0 6px 0;
     margin-left: 10px;
     background: #d40000;
     border-radius: 100px;
     color: white;
-    text-shadow: 0 0 5px #450002;
+    text-shadow: 1px 1px 5px #000;
 }
 
 .card{
+    font-family: 'Noto Sans JP', sans-serif;
     display: inline-block;
     width: 50px;
     height: 80px;
@@ -119,13 +128,31 @@ button[type="submit"]{
 
 .actions{ margin: 40px; text-align: center }
 .actions a{
+    text-transform: uppercase;
+    font-size: 13px;
+    font-family: 'Noto Sans JP', sans-serif;
     display: inline-block;
     padding: 5px 10px;
     border: none;
-    background: #033900;
-    color: white;
-    font-size: 18px;
+    border-radius: 5px;
+    background: #F8B317;
+    color: #0e0e0e;
     text-decoration: none;		
+    transition: color, background-color 0.2s;
+    margin-top: 10px;
+}
+.actions a:hover{
+    color: #F8B317;
+    background:#070707;
+}
+
+#money > svg{
+    margin-top: 2px;
+}
+
+.menu-text{
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
 }
 
 .blackjack {
@@ -138,12 +165,13 @@ button[type="submit"]{
 }
 
 .result-container{
+    position: relative;
     display: flex;
     flex-wrap: wrap;
     border-radius: 10px;
-    background-color: rgba(255, 255, 255, 0.507);
+    background-color:rgba(0, 0, 0, 0.88);
     padding:20px;
-    Margin:50px 30px;
+    Margin:0 20%;
     justify-content: center;
     align-items: center;
     flex-direction: column;
@@ -151,7 +179,7 @@ button[type="submit"]{
 
 .result-container > span {
     font-family: 'Luckiest Guy', cursive;
-    color:black;
+    color:white;
     text-transform: uppercase;
     font-size: 20px;
     text-align: center;
@@ -163,14 +191,30 @@ button[type="submit"]{
 }
 
 .reset{
-    color:white;
-    background-color:black;
+    color:black;
+    background-color:#F8B317;
     border-radius: 50px;
-    padding: 10px;
+    padding: 10px 12.5px;
     transition: color ,background-color 0.15s;
 }
 
 .reset:hover{
-    color:black;
-    background-color: white;
+    color:#F8B317;
+    background-color: black;
+}
+
+.anim {
+    position: absolute;
+    top: 0;
+    z-index: -9;
+    opacity: 0.1;
+}
+
+.anim, .anim svg {
+    width: 100%;
+    height: 100%;
+}
+
+.anim path {
+    stroke-width: 2;
 }
