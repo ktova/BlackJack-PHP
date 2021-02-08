@@ -92,6 +92,11 @@ class Joueur {
 	}
 	
 	// Setters
+	function delete_nom(){
+		unset( $this->nom );
+		unset( $_SESSION['playername'] );
+	}
+
 	function reset_cards( $type ){
 		$this->cards = array();
 		if( $type == 'joueur' ):
@@ -238,6 +243,7 @@ class Deck {
 }
 
 // Objetcs init
+if( isset($_REQUEST['playername']) ): $_SESSION['playername'] = $_REQUEST['playername']; endif;
 $joueur = new Joueur( $_SESSION['playername'], $_SESSION['money'], $_SESSION['bet'], $_SESSION['player_cards'], $_SESSION['gamestate'], $_SESSION['skip_joueur'] );
 $croupier = new Joueur( 'Risicroupier', null, null, $_SESSION['croupier_cards'], null, $_SESSION['skip_croupier'] );
 $deck = new Deck( $_SESSION['deck'] );
@@ -248,6 +254,7 @@ function reset_game( $joueur , $croupier , $deck ){
 	$joueur->reset_jetons();
 	$joueur->reset_bet();
 	$joueur->reset_cards( 'joueur' );
+	$joueur->delete_nom();
 	$croupier->reset_cards( 'croupier' );
 	$deck->shuffle_deck();
 }
@@ -364,7 +371,6 @@ switch ( $step )
 
 		endif;
 
-		// Afficher le résultat de se tour (A FAIRE)
 		
 		// Après cette étape, soit on recommence l'étape 3 ou on recommence une partie (A FAIRE)
 		
@@ -378,7 +384,7 @@ switch ( $step )
 	<meta name="robots" content="noindex">
 	<link href="https://fonts.googleapis.com/css?family=Luckiest+Guy" rel="stylesheet">
     <link href="./styles.css" rel="stylesheet">
-	
+	<script src="https://kit.fontawesome.com/0d2059c859.js" crossorigin="anonymous"></script>
 	<title>Black Jack</title>
 </head>
 
@@ -404,10 +410,13 @@ switch ( $step )
 			Cagnotte: <strong>CHF <?php echo $joueur->get_jetons() ?>.-</strong>
 			<br>Mise: <strong>CHF  <?php echo $joueur->get_bet() ?>.-</strong>
 		</div>
-		
+
+		<div class="top-left">
+		<a href="?reset" class="reset"><i class="fas fa-power-off"></i></a>
+		<?php if( !empty( $joueur->get_nom() ) ) : echo '&nbsp; Bonjour ' . strtoupper($joueur->get_nom()) . ' !' ; endif; ?>
+		</div>
 		
 		<?php 
-
 		switch ( $step )
 		{ 
 			case 1: // CAS 1 
@@ -416,6 +425,10 @@ switch ( $step )
 				<h2>Bienvenue à la table CREA !</h2>
 				<form method="post" action="index">
 					<input type="hidden" name="step" value="2" /> 
+
+					<label for="bet">Pseudonyme</label>
+					<input type="text" name="playername" /> 
+					<br><br>
 					<label for="bet">Votre mise:</label>
 					<select name="bet" id="bet">
 					<?php 
@@ -474,7 +487,6 @@ switch ( $step )
 					<a href="#">Passer son tour</a>
 					<?php endif; ?>
 
-					<a href="?reset">Réinitialiser</a>
 				</div>
 				<?php endif; ?>
 

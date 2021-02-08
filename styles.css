@@ -156,3 +156,21 @@ button[type="submit"]{
     font-size: 20px;
     text-align: center;
 }
+
+.top-left{
+    position: absolute;
+    top:20px;
+}
+
+.reset{
+    color:white;
+    background-color:black;
+    border-radius: 50px;
+    padding: 10px;
+    transition: color ,background-color 0.15s;
+}
+
+.reset:hover{
+    color:black;
+    background-color: white;
+}
