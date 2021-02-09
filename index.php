@@ -409,7 +409,7 @@ switch ( $step )
 
 <body>
 	<div class="wrapp">
-		<h1>Black Jack</h1>
+		<h1>Black Jack CREA</h1>
 		<div id="money" class="menu-text">
 			<svg version="1.1" id="Capa_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
 	 		     viewBox="0 0 221 221" style="enable-background:new 0 0 221 221;" xml:space="preserve">
@@ -503,7 +503,7 @@ switch ( $step )
 					<?php endif; ?>
 					
 					<?php if( $joueur->gamestate() == 0 ): ?>
-					<a href="#">Passer son tour</a>
+					<a href="?step=3&pass_tour">Passer son tour</a>
 					<?php endif; ?>
 
 				</div>
@@ -516,9 +516,9 @@ switch ( $step )
 			<div class="result-container">
 					
 					<?php if( $joueur->gamestate() == 1 ): ?>
-					<img src="https://tova.dev/static/bravo.png" style="width:100px;margin-bottom:20px">
+					<img class="outcome-boy" src="https://tova.dev/static/bravo.png" style="width:100px;margin-bottom:20px">
 					<?php elseif( $joueur->gamestate() == 2 ): ?>
-					<img src="https://tova.dev/static/pabravo.png" style="width:100px;margin-bottom:20px">
+					<img class="outcome-boy" src="https://tova.dev/static/pabravo.png" style="width:100px;margin-bottom:20px">
 					<?php endif; ?>
 
 					<span>Vous avez <?php if( $joueur->gamestate() == 1 ): echo 'gagné'; elseif( $joueur->gamestate() == 2 ): echo 'perdu'; endif; ?> la partie </span>

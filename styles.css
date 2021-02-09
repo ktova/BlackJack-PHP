@@ -218,3 +218,21 @@ button[type="submit"]:hover{
 .anim path {
     stroke-width: 2;
 }
+
+.outcome-boy {
+    animation: rotation 1s;
+    animation-timing-function: linear;
+    animation-iteration-count: infinite;
+}
+
+@keyframes rotation {
+    0% {
+      transform: rotate(0deg);
+    }
+    50% {
+      transform: rotate(40deg);
+    }
+    100% {
+      transform: rotate(0deg);
+    }
+}
