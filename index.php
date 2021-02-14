@@ -120,8 +120,12 @@ class Joueur {
 	}
 
 	function reset_bet(){
-		$this->bet = 5;
-		$_SESSION['bet'] = 5;
+		if( $this->jetons  < 5 ):
+			$this->bet = $this->jetons;
+		else: 
+			$this->bet = 5;
+			$_SESSION['bet'] = 5;
+		endif;
 	}
 
 	function reset_jetons(){
@@ -166,6 +170,9 @@ class Joueur {
 		elseif( $state == 'lose' ):
 			$this->state = 2;
 			$_SESSION['gamestate'] = 2;
+		elseif( $state == 'tie' ):
+			$this->state = 3;
+			$_SESSION['gamestate'] = 3;
 		endif;
 	}
 
@@ -267,20 +274,28 @@ function reset_game( $joueur , $croupier , $deck ){
 	$deck->shuffle_deck();
 }
 
-function outcome_checker( $player, $type , $joueur ){
+function outcome_checker( $joueur , $croupier ){
 
-	if( ( $player->get_points() == 21 && $type == 'joueur' ) || ( $player->get_points() > 21 && $type == 'croupier' ) ):
-		$gains = $player->get_bet() * 1.5;
-		$player->gain_jetons( $gains );
+	// Si le joueur a 21 points OU Si le croupier a plus de 21 points OU Si le joueur a 31 points et un as en mains OU Si le joueur à 22 points et un as en mains
+	if( ( $joueur->get_points() == 21  ) || ( $croupier->get_points() > 21 ) || ( $joueur->get_points() == 31 && $joueur->has_ace() == true ) || ( $joueur->get_points() == 22 && $joueur->has_ace() == true ) ):
+		$gains = $joueur->get_bet() * 1.5;
+		$joueur->gain_jetons( $gains );
 		$step = 2;
 		$joueur->edit_gamestate( 'win' );
 
-	elseif( ( $player->get_points() > 21 && $type == 'joueur' ) || ( $player->get_points() == 21 && $type == 'croupier' ) ):
-		$player->perte_jetons( $player->get_bet() );
+	
+	// Si le joueur à plus de 21 et qu'il n'a pas non plus 31 et un as en mains et qu'il n'a pasn on plus 22 et un as en mains OU Si le croupier a 21 points
+	elseif( ( $joueur->get_points() > 21 ) || ( $joueur->get_points() == 31 && $joueur->has_ace() == false ) || ( $joueur->get_points() == 22 && $joueur->has_ace() == false ) || ( $croupier->get_points() == 21 ) ):
+		$joueur->perte_jetons( $joueur->get_bet() );
 		$step = 2;
 		$joueur->edit_gamestate( 'lose' );
 
+	// Si le joueur a passé et que le croupier a passé, le joueur récupère sa mise
+	elseif( $joueur->get_skip() == 1 && $croupier->get_skip() == 1 ):
+		$step = 2;
+		$joueur->edit_gamestate( 'tie' );
 	endif;
+
 }
 
 // Objetcs init
@@ -288,15 +303,25 @@ $joueur = new Joueur( $_SESSION['playername'], $_SESSION['money'], $_SESSION['be
 $croupier = new Joueur( 'Risicroupier', null, null, $_SESSION['croupier_cards'], null, $_SESSION['skip_croupier'] );
 $deck = new Deck( $_SESSION['deck'] );
 
-// En cas de reset (à voir si on garde)
+// En cas de reset ou de défaite
 if( isset( $_REQUEST['reset'] ) ):
 	reset_game( $joueur , $croupier , $deck );
 	$step = 1;
 endif;
 
+if( $joueur->get_jetons() < 0 ):
+	reset_game( $joueur , $croupier , $deck );
+	$step = 2;
+endif;
+
 // AMPP Fix
 if( isset( $_REQUEST['playername'] ) ):
 	$joueur->change_nom( $_REQUEST['playername'] );
+endif;
+
+// Si l'utilisateur reset et change de bet
+if( isset( $_REQUEST['bet']) ):
+	$joueur->check_bet( $_REQUEST['bet'] );
 endif;
 
 // On défini l'étape en cours
@@ -307,6 +332,8 @@ switch ( $step )
 {
 	// Tour d'initialisation
 	case 2:
+
+		$joueur->reset_skip();
 
 		if( isset( $_REQUEST['replay'] ) ):
 			$joueur->reset_cards( 'joueur' );
@@ -329,7 +356,7 @@ switch ( $step )
 		endwhile;
 
 		// Si le joueur à 21 points, il gagne automatiquement et récupère immédiatement 1,5 fois sa mise
-		outcome_checker( $joueur , 'joueur' , $joueur );
+		outcome_checker( $joueur , $croupier );
 
 		break;
 		
@@ -343,8 +370,14 @@ switch ( $step )
 				if( $joueur->double_bet() == false ):
 					$error_message = "Vous ne pouvez pas doubler votre mise !";
 				else:
-					//$joueur->double_bet();
+					$new_card = $deck->draw_card();
+					$joueur->add_card( $new_card , 'joueur' );
 				endif;
+			endif;
+
+			// Le joueur passe son tour
+			if( isset( $_REQUEST['pass_tour'] ) ):
+				$joueur->skip_turn( 'joueur' );
 			endif;
 			
 			// Le joueur demande une nouvelle carte
@@ -352,47 +385,39 @@ switch ( $step )
 				$new_card = $deck->draw_card();
 				$joueur->add_card( $new_card , 'joueur' );
 			endif;
-			
-			// Si le joueur a 21 points, il gagne automatiquement et récupère immédiatement 1,5 fois sa mise | Si il a + il perds
-			outcome_checker( $joueur , 'joueur' , $joueur );
+	
+
 		endif;
+
+		// Si le joueur a 21 points, il gagne automatiquement et récupère immédiatement 1,5 fois sa mise | Si il a + il perds
+		outcome_checker( $joueur , $croupier );
+
+		if( $joueur->gamestate() == 0 ):
+
+			// Tant qu'il a moins de 17, il tire une carte
+			while( $croupier->get_points() < 17 ):
+				$new_card = $deck->draw_card();
+				$croupier->add_card( $new_card , 'croupier' );
+			endwhile;	
+
+			// S'il a 17 mais avec un As en main, il tire une carte 
+			if( $croupier->get_points() == 17 && $croupier->has_ace() == true ):
+				$new_card = $deck->draw_card();
+				$croupier->add_card( $new_card , 'croupier' );
+			endif;
+
+			// Plus de 17, il passe son tour
+			if( $croupier->get_points() > 17):
+				$croupier->skip_turn( 'croupier' );
+			endif;
+
+		endif;
+
+		// Si le croupier a plus de 21 points, le joueur récupère immédiatement 1,5 fois sa mise ,si le croupier a 21 points, le joueur perd sa mise 
+		outcome_checker( $joueur , $croupier );
+
 		$step = 2;
-		 
-		break;
-		
-	// Tour du croupier
-	case 4:
-		
-		// Tant qu'il a moins de 17, il tire une carte
-		while( $croupier->get_points() < 17 ):
-			$new_card = $deck->draw_card();
-			$croupier->add_card( $new_card , 'croupier' );
-		endwhile;	
-
-		// S'il a 17 mais avec un As en main, il tire une carte 
-		if( $croupier->get_points() == 17 && $croupier->has_ace() == true ):
-			$new_card = $deck->draw_card();
-			$croupier->add_card( $new_card , 'croupier' );
-		endif;
-
-		// Plus de 17, il passe son tour
-		if( $croupier->get_points() > 17):
-			// pass
-		endif;
-		
-		// Si le croupier a plus de 21 points, le joueur récupère immédiatement 1,5 fois sa mise 
-		// Si le croupier a 21 points, le joueur perd sa mise 
-		outcome_checker( $croupier, 'croupier' , $joueur );
-		
-		// Si le joueur a passé et que le croupier a passé, le joueur récupère sa mise
-		if( $joueur->get_skip() == 1 && $croupier->get_skip() == 1 ):
-
-		endif;
-
-		
-		// Après cette étape, soit on recommence l'étape 3 ou on recommence une partie (A FAIRE)
-		
-		break;
+		break;	
 }
 
 ?>	
@@ -427,7 +452,8 @@ switch ( $step )
 	 		 </svg>
 	 		 
 			Cagnotte: <strong>CHF <?php echo $joueur->get_jetons() ?>.-</strong>
-			<br>Mise: <strong>CHF  <?php echo $joueur->get_bet() ?>.-</strong>
+			<br>
+			Mise: <strong>CHF  <?php echo $joueur->get_bet() ?>.-</strong>
 		</div>
 
 		<div class="top-left menu-text">
@@ -459,7 +485,7 @@ switch ( $step )
 						if ( $joueur->get_jetons() >= 100 ) echo '<option value="100">CHF 100.-</option>';
 						if ( $joueur->get_jetons() >= 500 ) echo '<option value="500">CHF 500.-</option>';
 					?>
-						<option value="all">Totalité (tapis)</option>
+						<option value="<?php echo $joueur->get_jetons() ?>">Totalité (tapis)</option>
 					</select>
 					<button type="submit">Valider</button>
 				</form>
@@ -497,8 +523,8 @@ switch ( $step )
 					<?php if( count( $joueur->get_cards() ) !== 3 ): ?>
 					<a href="?step=3&new_card">Nouvelle carte</a>
 					<?php endif; ?>
-
-					<?php if(  $joueur->get_bet() * 2  < $joueur->get_jetons() ): ?>
+					
+					<?php if(  $joueur->get_bet() * 2 <= $joueur->get_jetons() ): ?>
 					<a href="?step=3&double_bet">Doubler la mise !</a>
 					<?php endif; ?>
 					
@@ -521,7 +547,7 @@ switch ( $step )
 					<img class="outcome-boy" src="https://tova.dev/static/pabravo.png" style="width:100px;margin-bottom:20px">
 					<?php endif; ?>
 
-					<span>Vous avez <?php if( $joueur->gamestate() == 1 ): echo 'gagné'; elseif( $joueur->gamestate() == 2 ): echo 'perdu'; endif; ?> la partie </span>
+					<span>Vous avez <?php if( $joueur->gamestate() == 1 ): echo 'gagné'; elseif( $joueur->gamestate() == 2 ): echo 'perdu'; elseif( $joueur->gamestate() == 3 ) : echo 'fait un nul dans'; endif; ?> la partie </span>
 					
 					<div class="player">
 					<h2>Croupier <span><?php echo $croupier->get_points() ?></span></h2>
